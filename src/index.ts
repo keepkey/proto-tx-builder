@@ -218,9 +218,10 @@ function convertLegacyMsg(msg: amino.AminoMsg): Pick<ProtoTx, 'msg'> {
         throw new Error(`expected 1 input coin got ${msg.value.coins?.length}`)
       }
       const inCoin = msg.value.coins[0]
-      const parts = inCoin.asset.split('.')
-      if (parts.length < 1) {
-        throw new Error(`expected 1 or 2 parts to asset got ${parts.length}`)
+      const delimiter = inCoin.asset.includes('/') ? '/' : '.';
+      const parts = inCoin.asset.split(delimiter);
+      if (parts.length !== 2) {
+        throw new Error(`expected asset to split into 2 parts, got ${parts.length}`);
       }
 
       var chain: string
