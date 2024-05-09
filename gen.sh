@@ -9,7 +9,6 @@ protoc \
   --ts_proto_opt="esModuleInterop=true,forceLong=long,useOptionals=true,exportCommonSymbols=false" \
   $(find "proto" -name '*.proto')
 
-
 # Remove unnecessary codec files
 rm -rf \
   ${outDir}/cosmos_proto/ \

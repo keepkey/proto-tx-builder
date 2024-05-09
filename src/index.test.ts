@@ -11,9 +11,7 @@ const prefixes = {
   cosmos: 'cosmos',
   thorchain: 'thor',
   arkeo: 'arkeo',
-  // terra: 'terra',
-  // kava: 'kava',
-  // secret: 'secret'
+  maya: 'maya'
 } as const
 
 // TODO - combine this with prefixes as a chain config object

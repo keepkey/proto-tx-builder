@@ -19,7 +19,7 @@ import { toAccAddress } from '@cosmjs/stargate/build/queryclient/utils'
 import { TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 
 import BN from 'bn.js'
-import { arkeo, osmosis, thorchain } from './amino'
+import { arkeo, osmosis, thorchain, mayachain } from './amino'
 import * as codecs from './proto'
 
 type AgnosticStdTx = Omit<amino.StdTx, 'msg'> &
@@ -73,6 +73,7 @@ export async function sign(
     ...thorchain.createAminoConverters(),
     ...osmosis.createAminoConverters(),
     ...arkeo.createAminoConverters(),
+    ...mayachain.createAminoConverters(),
   })
 
   const myRegistry = new Registry(defaultStargateTypes)
@@ -120,6 +121,10 @@ export async function sign(
   // thorchain
   myRegistry.register('/types.MsgSend', codecs.thorchain_types.MsgSend)
   myRegistry.register('/types.MsgDeposit', codecs.thorchain_types.MsgDeposit)
+
+  // mayachain
+  // myRegistry.register('/types.MsgSend', codecs.mayachain_types.MsgSend)
+  // myRegistry.register('/types.MsgDeposit', codecs.mayachain_types.MsgDeposit)
 
   const clientOffline = await SigningStargateClient.offline(signer, { registry: myRegistry, aminoTypes: myAminoTypes })
 
@@ -676,6 +681,67 @@ function convertLegacyMsg(msg: amino.AminoMsg): Pick<ProtoTx, 'msg'> {
           },
         ],
       }
+
+      case 'mayachain/MsgSend':
+        if (!msg.value.hasOwnProperty('from_address')) throw new Error('Missing from_address in msg')
+        if (!msg.value.hasOwnProperty('to_address')) throw new Error('Missing to_address in msg')
+  
+        return {
+          msg: [
+            {
+              typeUrl: '/types.MsgSend',
+              value: {
+                fromAddress: toAccAddress(msg.value.from_address),
+                toAddress: toAccAddress(msg.value.to_address),
+                amount: scrubCoins(msg.value.amount),
+              },
+            },
+          ],
+        }
+      case 'mayachain/MsgDeposit':
+        if (msg.value.coins?.length !== 1) {
+          throw new Error(`expected 1 input coin got ${msg.value.coins?.length}`)
+        }
+        const _inCoin = msg.value.coins[0]
+        const _parts = _inCoin.asset.split('.')
+        if (_parts.length < 1) {
+          throw new Error(`expected 1 or 2 parts to asset got ${_parts.length}`)
+        }
+  
+        var chain: string
+        var symbol: string
+        if (_parts.length > 1) {
+          ;[chain, symbol] = _parts
+        } else {
+          ;[symbol] = _parts
+          chain = 'THOR'
+        }
+  
+        const [_ticker] = symbol.split('-')
+        return {
+          msg: [
+            {
+              typeUrl: '/types.MsgDeposit',
+              value: {
+                coins: [
+                  {
+                    asset: {
+                      chain: chain,
+                      symbol: symbol,
+                      ticker: _ticker,
+                      synth: false,
+                    },
+                    amount: _inCoin.amount,
+                  },
+                ],
+                memo: msg.value.memo,
+                signer: toAccAddress(msg.value.signer),
+              },
+            },
+          ],
+        }
+
+
     default:
       throw new Error('Unhandled tx type! type: ' + msg.type)
   }
